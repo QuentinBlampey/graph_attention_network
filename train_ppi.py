@@ -1,4 +1,5 @@
 import argparse
+from os import path
 import numpy as np
 from dgl import batch
 from dgl.data.ppi import LegacyPPIDataset
@@ -10,7 +11,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 
-MODEL_STATE_FILE = "model_state.pth"
+MODEL_STATE_FILE = path.join(path.dirname(path.abspath(__file__)), "model_state.pth")
 
 
 class BasicGraphModel(nn.Module):
@@ -31,6 +32,7 @@ class BasicGraphModel(nn.Module):
         return outputs
 
     def set_graph(self, g):
+        self.g = g
         for layer in self.layers:
             layer.g = g
 
