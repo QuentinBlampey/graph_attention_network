@@ -99,7 +99,7 @@ class GAT(nn.Module):
                 for head in module.heads:
                     head.g = g
 
-def main(args, f1_scores=[]):
+def main(args):
     # create the dataset
     train_dataset, test_dataset = LegacyPPIDataset(mode="train"), LegacyPPIDataset(mode="test")
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, collate_fn=collate_fn)
@@ -122,13 +122,13 @@ def main(args, f1_scores=[]):
 
     # train and test
     if args.mode == "train":
-        train(model, loss_fcn, device, optimizer, train_dataloader, test_dataset, f1_scores=f1_scores)
+        train(model, loss_fcn, device, optimizer, train_dataloader, test_dataset)
         torch.save(model.state_dict(), MODEL_STATE_FILE)
     model.load_state_dict(torch.load(MODEL_STATE_FILE, map_location=device))
     return test(model, loss_fcn, device, test_dataloader)
 
 
-def train(model, loss_fcn, device, optimizer, train_dataloader, test_dataset, f1_scores=[]):
+def train(model, loss_fcn, device, optimizer, train_dataloader, test_dataset):
     for epoch in range(args.epochs):
         model.train()
         losses = []
@@ -155,8 +155,6 @@ def train(model, loss_fcn, device, optimizer, train_dataloader, test_dataset, f1
                 score, _ = evaluate(features.float(), model, subgraph, labels.float(), loss_fcn, device)
                 scores.append(score)
             print("F1-Score: {:.4f} ".format(np.array(scores).mean()))
-            f1_scores.append(np.array(scores).mean())
-    return f1_scores
 
 def test(model, loss_fcn, device, test_dataloader):
     print("\n-- Testing")
