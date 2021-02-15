@@ -36,7 +36,10 @@ class BasicGraphModel(nn.Module):
         for layer in self.layers:
             layer.g = g
 
+### --- GAT Implementation ---
+
 class AttentionHead(nn.Module):
+    '''One attention head'''
     def __init__(self, in_dim, out_dim, device, input_slope=0.2):
         super().__init__()
         self.g = None
@@ -51,25 +54,27 @@ class AttentionHead(nn.Module):
         self.init_xavier_uniform()
 
     def init_xavier_uniform(self):
+        '''Xavier uniform initialization'''
         gain = nn.init.calculate_gain('relu')
         nn.init.xavier_uniform_(self.linear.weight, gain=gain)
         nn.init.xavier_uniform_(self.attention.weight, gain=gain)
 
     def forward(self, inputs):
-        Wh = self.linear(inputs)
+        Wh = self.linear(inputs) # Weight applied to every node embedding
         
         n_nodes = self.g.number_of_nodes()
-        U, V = self.g.all_edges()
+        U, V = self.g.all_edges() # Extract nodes indices
 
-        edges_repr = torch.cat((Wh[U], Wh[V]), dim=1).to(self.device)
+        edges_repr = torch.cat((Wh[U], Wh[V]), dim=1).to(self.device) # Concat edges to compute attention
 
-        alpha = torch.zeros((n_nodes, n_nodes)).to(self.device)
-        alpha[U, V] = self.attention(edges_repr).squeeze(-1)
-        alpha = F.softmax(F.leaky_relu(alpha, negative_slope=self.input_slope), dim=1)
+        alpha = torch.zeros((n_nodes, n_nodes)).to(self.device) # Initialize alpha matrix
+        alpha[U, V] = self.attention(edges_repr).squeeze(-1) # Add attention weights
+        alpha = F.softmax(F.leaky_relu(alpha, negative_slope=self.input_slope), dim=1) # LeakyReLU + Softmax
         
-        return torch.relu(alpha.mm(Wh))
+        return torch.relu(alpha.mm(Wh)) # Attention applied to the features
 
 class MultiHead(nn.Module):
+    '''Multiple attention heads concatenation'''
     def __init__(self, in_dim, out_dim, num_heads, device, average=False):
         super(MultiHead, self).__init__()
         self.average = average
@@ -78,10 +83,11 @@ class MultiHead(nn.Module):
     def forward(self, h):
         head_outs = [attn_head(h) for attn_head in self.heads]
         if self.average:
-            return torch.stack(head_outs, dim=2).mean(dim=2)
-        return torch.cat(head_outs, dim=1)
+            return torch.stack(head_outs, dim=2).mean(dim=2) # Keep same output dimension
+        return torch.cat(head_outs, dim=1) # Output dimension increases
 
 class GAT(nn.Module):
+    '''Two MultiHead instances and a ELU in between'''
     def __init__(self, in_dim, hidden_dim, out_dim, num_heads=4, device='cpu'):
         super(GAT, self).__init__()
         self.gat = nn.Sequential(
